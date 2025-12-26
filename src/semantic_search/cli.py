@@ -11,7 +11,7 @@ from semantic_search.storage import IndexStorage
 
 
 @click.group()
-@click.version_option(version="0.1.1")
+@click.version_option(version="0.2.0")
 def cli():
     """
     Semantic Search - Local semantic search for Python projects.
@@ -52,14 +52,16 @@ def index(directory, name, model):
 @click.argument('query')
 @click.option('--index', '-i', required=True, help='Name of the index to search')
 @click.option('--top-k', '-k', default=5, help='Number of results to return (default: 5)')
-def search(query, index, top_k):
+@click.option('--preview/--no-preview', '-p', default=True, help='Show code preview for results (default: enabled)')
+def search(query, index, top_k, preview):
     """
-    Search for files semantically similar to the query.
+    Search for code semantically similar to the query.
 
     QUERY: Search query text
 
-    Example:
+    Examples:
         semantic-search search "user authentication" --index my_project
+        semantic-search search "database models" --index my_project --no-preview
     """
     try:
         # Validate query
@@ -81,8 +83,29 @@ def search(query, index, top_k):
         click.echo(click.style(f"Found {len(results)} results:\n", fg='green'))
 
         for result in results:
-            click.echo(f"  [{result.rank}] {click.style(result.file_path, fg='cyan')}")
-            click.echo(f"      Score: {result.score:.4f}")
+            # Show chunk-based results with better formatting
+            if result.chunk_type:
+                location = f"{result.file_path}:{result.start_line}"
+                if result.parent:
+                    context = f"{result.parent}.{result.name}"
+                else:
+                    context = result.name
+
+                click.echo(f"  [{result.rank}] {click.style(result.chunk_type, fg='yellow')}: {click.style(context, fg='cyan')}")
+                click.echo(f"      Location: {click.style(location, fg='blue')}")
+                click.echo(f"      Score: {result.score:.4f}")
+
+                if preview:
+                    if result.signature:
+                        click.echo(f"      Signature: {click.style(result.signature, fg='green')}")
+                    if result.docstring:
+                        first_line = result.docstring.split('\n')[0].strip()
+                        click.echo(f"      Doc: {first_line}")
+            else:
+                # v0.1 whole-file results
+                click.echo(f"  [{result.rank}] {click.style(result.file_path, fg='cyan')}")
+                click.echo(f"      Score: {result.score:.4f}")
+
             click.echo()
 
     except FileNotFoundError as e:
@@ -120,6 +143,11 @@ def list():
                 click.echo(f"  • {click.style(index_name, fg='cyan')}")
                 click.echo(f"    Path: {info['indexed_path']}")
                 click.echo(f"    Files: {info['num_files']}")
+
+                # Show chunks info for v0.2+ indexes
+                if 'num_chunks' in info:
+                    click.echo(f"    Chunks: {info['num_chunks']}")
+
                 click.echo(f"    Created: {info['created_at']}")
                 click.echo()
             except Exception as e:
@@ -149,6 +177,11 @@ def info(index_name):
         click.echo(f"  Indexed path: {info['indexed_path']}")
         click.echo(f"  Created at: {info['created_at']}")
         click.echo(f"  Number of files: {info['num_files']}")
+
+        # Show chunks info for v0.2+ indexes
+        if 'num_chunks' in info:
+            click.echo(f"  Number of chunks: {info['num_chunks']}")
+
         click.echo(f"  Number of vectors: {info['num_vectors']}")
         click.echo(f"  Embedding dimension: {info['dimension']}")
         click.echo()

@@ -172,18 +172,28 @@ class IndexStorage:
 
         faiss_index, metadata = self.load_index(index_name)
 
-        # Validate essential metadata fields
-        required_fields = ["created_at", "indexed_path", "files"]
-        missing_fields = [field for field in required_fields if field not in metadata]
+        # Check if using chunk-based indexing (v0.2+)
+        use_chunking = metadata.get("use_chunking", False)
 
-        if missing_fields:
-            print(f"Warning: Metadata missing fields: {', '.join(missing_fields)}")
+        # Calculate num_files based on version
+        if use_chunking:
+            num_files = metadata.get("num_files", 0)
+            num_chunks = metadata.get("num_chunks", 0)
+        else:
+            num_files = len(metadata.get("files", []))
+            num_chunks = 0
 
-        return {
+        result = {
             "name": index_name,
             "num_vectors": faiss_index.ntotal,
             "dimension": faiss_index.d,
-            "num_files": len(metadata.get("files", [])),
+            "num_files": num_files,
             "created_at": metadata.get("created_at", "Unknown"),
             "indexed_path": metadata.get("indexed_path", "Unknown"),
         }
+
+        # Add chunk info for v0.2+ indexes
+        if use_chunking:
+            result["num_chunks"] = num_chunks
+
+        return result

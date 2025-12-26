@@ -8,11 +8,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Chunk-based parsing (functions/classes separately) - v0.2
 - Incremental index updates - v0.3
 - Django/FastAPI specific features - v0.4
 - Python API for programmatic use - v0.5
 - MCP integration for AI tools - v0.6
+
+## [0.2.0] - 2025-12-27
+
+### Added - Chunk-based Parsing 🔍
+- **AST-based Python parser** for extracting code chunks:
+  - Functions with signatures and docstrings
+  - Classes with inheritance information
+  - Methods with parent class context
+  - Automatic signature extraction with type hints
+  - Docstring extraction for better semantic search
+- **New parsers module** (`semantic_search.parsers/`):
+  - `base_parser.py` - Abstract base class and `CodeChunk` dataclass
+  - `python_parser.py` - Python AST parser implementation
+- **Enhanced search results**:
+  - Chunk type display (function, class, method)
+  - File location with line numbers (`file.py:123`)
+  - Parent class context for methods (`ClassName.method_name`)
+  - Similarity scores for relevance ranking
+- **Preview mode enabled by default** for search command:
+  - Shows function/method signatures automatically
+  - Displays first line of docstrings
+  - Better code discovery experience
+  - Use `--no-preview` to disable if needed
+
+### Improved
+- **Metadata structure**:
+  - Stores chunk information (type, name, lines, signature, docstring, parent)
+  - Maintains backward compatibility with v0.1 indexes
+  - Added `use_chunking` flag to distinguish index versions
+  - Stores `num_chunks` alongside `num_files`
+- **CLI enhancements**:
+  - `list` command shows chunk count for v0.2 indexes
+  - `info` command displays chunk statistics
+  - `search` command with improved formatting for chunk-based results
+  - Color-coded output for better readability
+- **SearchResult dataclass**:
+  - Extended with chunk-specific fields
+  - Backward compatible with v0.1 whole-file results
+  - Smart `__str__` method for different index versions
+
+### Technical
+- AST (Abstract Syntax Tree) parsing for accurate code extraction
+- Chunk-based indexing with 66 chunks from 9 test files
+- Dual-mode indexing: chunk-based (v0.2) and whole-file (v0.1)
+- Automatic format detection based on metadata
+- No breaking changes - v0.1 indexes continue to work
+
+### Example Output
+```
+[1] function: authenticate_user
+    Location: auth.py:64
+    Score: 0.8823
+    Signature: def authenticate_user(username: str, password: str) -> Optional[User]:
+    Doc: Authenticate a user by username and password.
+```
+
+### Breaking Changes
+- None - fully backward compatible with v0.1
 
 ## [0.1.1] - 2025-12-26
 
@@ -76,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[unreleased]: https://github.com/steliarix/semantic-search/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/steliarix/semantic-search/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/steliarix/semantic-search/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/steliarix/semantic-search/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/steliarix/semantic-search/releases/tag/v0.1.0

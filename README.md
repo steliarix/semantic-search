@@ -11,8 +11,12 @@ Local, free semantic search for Python projects (Django, FastAPI, and more).
 - **Free** - No API keys or paid services required
 - **Local** - All data stored on your machine
 - **Private** - Complete confidentiality of your code
-- **Offline** - Works without internet connection
+- **Offline** - Works without internet connection (after initial model download)
 - **Fast** - Optimized with FAISS for vector search
+- **Chunk-based** (v0.2+) - Search functions, classes, and methods separately
+- **Smart parsing** - AST-based code extraction with signatures and docstrings
+- **Precise results** - File:line locations for exact code navigation
+- **Preview by default** - Automatically shows signatures and docstrings in results
 
 ## Technologies
 
@@ -83,7 +87,7 @@ semantic-search search "user authentication logic" --index my_project
 Example queries:
 
 ```bash
-# Search for authentication functions
+# Search for authentication functions (preview enabled by default)
 semantic-search search "user login and authentication" --index django_app
 
 # Search for database models
@@ -94,6 +98,9 @@ semantic-search search "REST API endpoints" --index fastapi_app
 
 # More results
 semantic-search search "payment processing" --index my_project --top-k 10
+
+# Disable preview mode if needed
+semantic-search search "user authentication" --index django_app --no-preview
 ```
 
 ### List Indexes
@@ -120,6 +127,8 @@ semantic-search delete my_project
 
 ## Example Output
 
+### v0.2 - Chunk-based Search (Current)
+
 ```bash
 # 1. Index project
 $ semantic-search index ~/projects/my-django-app --name django_app
@@ -127,14 +136,12 @@ Loading embedding model: all-MiniLM-L6-v2
 Model loaded. Embedding dimension: 384
 Indexing directory: /Users/user/projects/my-django-app
 Found 45 Python files
-Reading files: 100%|████████████| 45/45
-Creating embeddings for 45 files...
-Batches: 100%|████████████| 2/2
-Created FAISS index with 45 vectors
-Index saved to: ~/.semantic_search/indexes/django_app
+Found 234 code chunks
+Creating embeddings for 234 chunks...
+Created FAISS index with 234 vectors
 ✓ Successfully created index 'django_app'
 
-# 2. Search
+# 2. Search (preview is enabled by default in v0.2)
 $ semantic-search search "user authentication" --index django_app
 
 Searching for: 'user authentication'
@@ -142,20 +149,34 @@ Index: django_app
 
 Found 5 results:
 
-  [1] app/auth/views.py
+  [1] function: authenticate_user
+      Location: app/auth/views.py:42
       Score: 0.3421
+      Signature: def authenticate_user(username: str, password: str) -> Optional[User]:
+      Doc: Authenticate a user by username and password.
 
-  [2] app/users/models.py
+  [2] class: User
+      Location: app/users/models.py:15
       Score: 0.4156
+      Signature: class User(AbstractUser):
+      Doc: Custom user model with additional fields.
 
-  [3] app/middleware/auth.py
+  [3] method: AuthMiddleware.process_request
+      Location: app/middleware/auth.py:28
       Score: 0.4892
+      Signature: def process_request(self, request: HttpRequest) -> Optional[HttpResponse]:
+      Doc: Process authentication for incoming requests.
 
-  [4] app/auth/serializers.py
+  [4] class: UserSerializer
+      Location: app/auth/serializers.py:10
       Score: 0.5234
+      Signature: class UserSerializer(ModelSerializer):
+      Doc: Serializer for User model authentication.
 
-  [5] app/auth/tests.py
+  [5] function: test_user_login
+      Location: app/auth/tests.py:55
       Score: 0.6012
+      Signature: def test_user_login() -> None:
 ```
 
 ## How It's Better Than grep
@@ -200,10 +221,8 @@ semantic-search/
 │       └── storage.py        # Index storage
 ├── .indexes/                 # Local indexes (git ignored)
 ├── CHANGELOG.md              # Change history
-├── CONTRIBUTING.md           # Contributor guide
 ├── LICENSE                   # MIT license
 ├── README.md                 # This file
-├── ROADMAP.md                # Development roadmap
 ├── pyproject.toml            # Project configuration
 └── requirements.txt          # Dependencies
 ```
@@ -220,28 +239,38 @@ Indexes are stored locally in:
 
 ## Supported File Types
 
-### v0.1 (current version):
-- Python (.py)
+### v0.2 (current version):
+- Python (.py) with chunk-based parsing
+  - Functions, classes, and methods indexed separately
+  - Signatures and docstrings extracted
+  - Type hints preserved
 
 ### Future versions:
 - JavaScript/TypeScript (.js, .ts, .jsx, .tsx)
 - Java (.java)
 - Markdown (.md, .rst)
 
-## Limitations in v0.1
+## Limitations in v0.2
 
-- Entire file is indexed as one chunk (v0.2 will have chunk-based parsing)
 - Python files only
-- No incremental updates (need to reindex entire project)
+- No incremental updates (need to reindex entire project) - coming in v0.3
 - CLI only (Python API in v0.5)
+- Basic AST parsing (no decorators, no nested functions)
 
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for detailed development plan.
 
+### Current version:
+
+- **v0.2** ✅ - Chunk-based parsing (functions/classes/methods)
+  - AST-based Python parser
+  - Signature and docstring extraction
+  - File:line location tracking
+  - Preview mode with `--preview` flag
+
 ### Upcoming versions:
 
-- **v0.2** - Chunk-based parsing (functions/classes separately)
 - **v0.3** - Incremental updates
 - **v0.4** - Django/FastAPI specific features
 - **v0.5** - Python API

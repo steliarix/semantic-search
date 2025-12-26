@@ -6,7 +6,7 @@ A free, local, and privacy-focused semantic search tool for Python codebases
 vector similarity search.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Artem"
 __license__ = "MIT"
 
