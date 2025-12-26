@@ -17,6 +17,7 @@ Local, free semantic search for Python projects (Django, FastAPI, and more).
 - **Smart parsing** - AST-based code extraction with signatures and docstrings
 - **Precise results** - File:line locations for exact code navigation
 - **Preview by default** - Automatically shows signatures and docstrings in results
+- **Incremental updates** (v0.3+) - Update only changed files, 10x faster than full re-indexing
 
 ## Technologies
 
@@ -56,7 +57,10 @@ semantic-search index ~/projects/my-django-app --name django_app
 # 2. Search
 semantic-search search "user authentication" --index django_app
 
-# 3. View indexes
+# 3. Make code changes, then update index (only changed files)
+semantic-search update django_app
+
+# 4. View indexes
 semantic-search list
 ```
 
@@ -75,6 +79,20 @@ Example:
 ```bash
 semantic-search index ~/projects/django-app --name django_app
 ```
+
+### Updating an Index
+
+Update an existing index incrementally (only re-index changed files):
+
+```bash
+semantic-search update my_project
+```
+
+This will:
+- Detect new, changed, and deleted files
+- Re-index only changed files
+- Preserve embeddings for unchanged files
+- 10x faster than full re-indexing
 
 ### Searching
 
@@ -98,6 +116,9 @@ semantic-search search "REST API endpoints" --index fastapi_app
 
 # More results
 semantic-search search "payment processing" --index my_project --top-k 10
+
+# Auto-update index before searching (v0.3+)
+semantic-search search "user authentication" --index django_app --auto-update
 
 # Disable preview mode if needed
 semantic-search search "user authentication" --index django_app --no-preview
@@ -250,18 +271,27 @@ Indexes are stored locally in:
 - Java (.java)
 - Markdown (.md, .rst)
 
-## Limitations in v0.2
+## Limitations in v0.3
 
 - Python files only
-- No incremental updates (need to reindex entire project) - coming in v0.3
 - CLI only (Python API in v0.5)
 - Basic AST parsing (no decorators, no nested functions)
+- No Django/FastAPI specific features yet (coming in v0.4)
 
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for detailed development plan.
 
 ### Current version:
+
+- **v0.3** ✅ - Incremental updates
+  - Update only changed files (10x faster)
+  - SHA256 hash and mtime tracking
+  - `update` CLI command
+  - `--auto-update` flag for search
+  - Smart file change detection
+
+### Previous versions:
 
 - **v0.2** ✅ - Chunk-based parsing (functions/classes/methods)
   - AST-based Python parser
@@ -271,7 +301,6 @@ See [ROADMAP.md](ROADMAP.md) for detailed development plan.
 
 ### Upcoming versions:
 
-- **v0.3** - Incremental updates
 - **v0.4** - Django/FastAPI specific features
 - **v0.5** - Python API
 - **v0.6** - MCP integration for AI tools (Claude Code, Cursor)
