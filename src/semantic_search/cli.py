@@ -11,7 +11,7 @@ from semantic_search.storage import IndexStorage
 
 
 @click.group()
-@click.version_option(version="0.2.0")
+@click.version_option(version="0.3.0")
 def cli():
     """
     Semantic Search - Local semantic search for Python projects.
@@ -49,11 +49,41 @@ def index(directory, name, model):
 
 
 @cli.command()
+@click.argument('index_name')
+def update(index_name):
+    """
+    Update an existing index incrementally.
+
+    Only re-indexes files that have changed, adds new files,
+    and removes deleted files from the index.
+
+    INDEX_NAME: Name of the index to update
+
+    Example:
+        semantic-search update my_project
+    """
+    try:
+        indexer = Indexer()
+        indexer.update_index(index_name)
+        click.echo(click.style(f"\n✓ Successfully updated index '{index_name}'", fg='green'))
+
+    except FileNotFoundError as e:
+        click.echo(click.style(f"\n✗ Error: {e}", fg='red'), err=True)
+        click.echo("Use 'semantic-search list' to see available indexes")
+        raise click.Abort()
+
+    except Exception as e:
+        click.echo(click.style(f"\n✗ Error: {e}", fg='red'), err=True)
+        raise click.Abort()
+
+
+@cli.command()
 @click.argument('query')
 @click.option('--index', '-i', required=True, help='Name of the index to search')
 @click.option('--top-k', '-k', default=5, help='Number of results to return (default: 5)')
 @click.option('--preview/--no-preview', '-p', default=True, help='Show code preview for results (default: enabled)')
-def search(query, index, top_k, preview):
+@click.option('--auto-update/--no-auto-update', default=False, help='Automatically update index before searching (default: disabled)')
+def search(query, index, top_k, preview, auto_update):
     """
     Search for code semantically similar to the query.
 
@@ -62,12 +92,24 @@ def search(query, index, top_k, preview):
     Examples:
         semantic-search search "user authentication" --index my_project
         semantic-search search "database models" --index my_project --no-preview
+        semantic-search search "API endpoints" --index my_project --auto-update
     """
     try:
         # Validate query
         if not query or not query.strip():
             click.echo(click.style("\n✗ Error: Search query cannot be empty", fg='red'), err=True)
             raise click.Abort()
+
+        # Auto-update if requested
+        if auto_update:
+            click.echo("Checking for index updates...")
+            try:
+                indexer = Indexer()
+                indexer.update_index(index, show_progress=False)
+                click.echo()
+            except Exception as e:
+                click.echo(click.style(f"Warning: Auto-update failed: {e}", fg='yellow'))
+                click.echo("Continuing with existing index...\n")
 
         searcher = Searcher(index_name=index)
 

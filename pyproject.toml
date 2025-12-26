@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semantic-search"
-version = "0.2.0"
-description = "Local semantic search for Python projects with chunk-based parsing"
+version = "0.3.0"
+description = "Local semantic search for Python projects with incremental updates"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
