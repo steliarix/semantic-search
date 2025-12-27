@@ -5,11 +5,19 @@ This module provides parsers for extracting structured code chunks
 (functions, classes, methods) from source code files.
 """
 
-from semantic_search.parsers.base_parser import BaseParser, CodeChunk
-from semantic_search.parsers.python_parser import PythonParser
+from codesense.parsers.base_parser import BaseParser, CodeChunk
+from codesense.parsers.python_parsers import (
+    DjangoParser,
+    FastAPIParser,
+    PythonParser,
+    UniversalParser,
+)
 
 __all__ = [
     "BaseParser",
     "CodeChunk",
     "PythonParser",
+    "DjangoParser",
+    "FastAPIParser",
+    "UniversalParser",
 ]

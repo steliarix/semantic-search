@@ -29,6 +29,12 @@ class CodeChunk:
         code: The actual code content
         parent: Parent class name (for methods)
         imports: List of imports (for import chunks)
+        framework_type: Framework-specific type (django_model, fastapi_route, etc.)
+        decorators: List of decorators applied to the function/class
+        base_classes: List of base classes (for classes)
+        http_method: HTTP method for routes (GET, POST, etc.)
+        route_path: URL path for routes
+        model_fields: List of model fields (for Django/Pydantic models)
     """
     chunk_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     file_path: str = ""
@@ -41,6 +47,12 @@ class CodeChunk:
     code: str = ""
     parent: Optional[str] = None
     imports: list[str] = field(default_factory=list)
+    framework_type: Optional[str] = None  # django_model, django_view, fastapi_route, pydantic_model, etc.
+    decorators: list[str] = field(default_factory=list)
+    base_classes: list[str] = field(default_factory=list)
+    http_method: Optional[str] = None  # GET, POST, PUT, DELETE, etc.
+    route_path: Optional[str] = None  # URL path for routes
+    model_fields: list[str] = field(default_factory=list)  # Model field names
 
     def to_dict(self) -> dict:
         """Convert CodeChunk to dictionary for storage."""
@@ -55,6 +67,12 @@ class CodeChunk:
             "docstring": self.docstring,
             "parent": self.parent,
             "imports": self.imports,
+            "framework_type": self.framework_type,
+            "decorators": self.decorators,
+            "base_classes": self.base_classes,
+            "http_method": self.http_method,
+            "route_path": self.route_path,
+            "model_fields": self.model_fields,
         }
 
     def get_searchable_text(self) -> str:

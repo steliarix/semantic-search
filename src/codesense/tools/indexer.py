@@ -12,9 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
-from semantic_search.embeddings import EmbeddingModel
-from semantic_search.storage import IndexStorage
-from semantic_search.parsers import PythonParser
+from codesense.util.embeddings import EmbeddingModel
+from codesense.util.storage import IndexStorage
+from codesense.parsers import UniversalParser
 
 
 class Indexer:
@@ -47,12 +47,14 @@ class Indexer:
         Args:
             embedding_model: EmbeddingModel instance. If None, creates default.
             storage: IndexStorage instance. If None, creates default.
-            use_chunking: If True, parse files into chunks (v0.2). If False, index whole files (v0.1).
+            use_chunking: If True, parse files into chunks. If False, index whole files.
         """
         self.embedding_model = embedding_model or EmbeddingModel()
         self.storage = storage or IndexStorage()
         self.use_chunking = use_chunking
-        self.parser = PythonParser() if use_chunking else None
+
+        # Always use universal parser - auto-detects all frameworks
+        self.parser = UniversalParser() if use_chunking else None
 
     def _should_ignore_dir(self, dir_name: str) -> bool:
         """Check if a directory should be ignored."""
@@ -250,7 +252,7 @@ class Indexer:
             "embedding_dimension": dimension,
             "use_chunking": True,
             "chunks": [chunk.to_dict() for chunk in all_chunks],
-            "file_metadata": file_metadata,  # v0.3: file hashes and mtimes
+            "file_metadata": file_metadata,
         }
 
         # Save index
@@ -360,6 +362,10 @@ class Indexer:
             raise FileNotFoundError(f"Indexed directory not found: {indexed_path}")
 
         use_chunking = metadata.get("use_chunking", False)
+
+        # Ensure we have the universal parser for updates
+        if use_chunking and not self.parser:
+            self.parser = UniversalParser()
 
         if use_chunking:
             self._update_index_with_chunks(index_name, indexed_path, faiss_index, metadata, show_progress)

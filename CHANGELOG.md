@@ -8,9 +8,217 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Django/FastAPI specific features - v0.4
-- Python API for programmatic use - v0.5
 - MCP integration for AI tools - v0.6
+- Multi-language support (JavaScript, TypeScript, Java)
+
+## [0.4.0] - 2025-12-27
+
+### Added - Universal Framework Support + Python API 🎯
+
+#### Python API for Programmatic Use 🐍
+- **High-level API classes** for using CodeSense as a library:
+  - `CodeSense` / `SemanticSearch` - Main API class for all operations
+  - `SearchResult` - Data class for search results
+- **Simple programmatic interface**:
+  - `cs.index(directory)` - Index a directory
+  - `cs.search(query, top_k)` - Search for code
+  - `cs.update()` - Update index incrementally
+  - `cs.info()` - Get index statistics
+  - `cs.delete()` - Delete an index
+  - `cs.exists()` - Check if index exists
+  - Static methods: `CodeSense.list_indexes()`, `CodeSense.get_all_index_info()`
+- **Configuration options**:
+  - Custom embedding models
+  - Custom storage paths
+  - Auto-update before search
+  - Show/hide progress bars
+- **Lazy loading** - Resources loaded only when needed
+- **Full integration** with existing CLI infrastructure
+
+#### Universal Framework Support
+- **UniversalParser** - One parser for all frameworks:
+  - Automatically detects Django, FastAPI, Flask, and generic Python
+  - No need to specify project type - works universally
+  - Smart framework detection based on base classes and decorators
+  - Unified approach without conditional logic
+- **Smart Query Analysis** - Natural language intent detection:
+  - Automatically detects intent from query keywords
+  - Auto-filters based on query content ("product model" → models only)
+  - No need for explicit --filter flag in most cases
+  - Recognizes type keywords: model, route, endpoint, view, serializer, function, class
+  - Recognizes framework keywords: django, fastapi, flask, pydantic
+  - 20% relevance boost for matching detected intent
+  - Works alongside explicit filters when needed
+- **Framework-specific metadata**:
+  - `framework_type` - Auto-detected type (django_model, fastapi_route, flask_route, etc.)
+  - `decorators` - List of all decorators applied to functions/classes
+  - `base_classes` - List of base classes for inheritance tracking
+  - `http_method` - HTTP method for routes (GET, POST, PUT, DELETE, etc.)
+  - `route_path` - URL path for API routes
+  - `model_fields` - Field names for models (Django, Pydantic)
+- **Django detection**:
+  - Models (models.Model, AbstractUser, AbstractBaseUser)
+  - Views (APIView, ViewSet, ModelViewSet, generic views)
+  - Serializers (Serializer, ModelSerializer)
+  - View decorators (@api_view, @login_required, @require_http_methods)
+- **FastAPI detection**:
+  - Route decorators (@app.get, @app.post, @router.*, etc.)
+  - Pydantic models (BaseModel)
+  - HTTP methods and paths extracted from decorators
+- **Flask detection**:
+  - Route decorators (@app.route, @blueprint.route)
+  - HTTP methods from route arguments
+  - Blueprint support
+- **Enhanced filtering**:
+  - `--filter model` - Django models + Pydantic models
+  - `--filter route` - FastAPI routes + Flask routes
+  - `--filter view` - Django views
+  - `--filter serializer` - Django serializers
+  - `--filter django` - All Django-specific code
+  - `--filter fastapi` - All FastAPI-specific code
+  - `--filter flask` - All Flask-specific code
+  - Partial matching (e.g., "api" matches "fastapi_route")
+  - Free-text filters without predefined choices
+- **Enhanced search display**:
+  - Shows framework type instead of generic chunk type
+  - Displays HTTP method and route path for API endpoints
+  - Color-coded route information
+
+### Improved
+- **Simplified indexing**:
+  - Removed `--type` option from `index` command
+  - Universal parser used by default for all projects
+  - Auto-detection of all frameworks in single index
+  - No configuration needed - just index and search
+- **Flexible filtering**:
+  - Removed restrictive filter choices
+  - Support for any filter string
+  - Multiple ways to filter (by framework, by type, by keyword)
+- **Better search UX**:
+  - Framework-aware result display
+  - Route information shown for API endpoints
+  - Clearer type indicators
+
+### Technical
+- New `UniversalParser` combines all framework detection
+- Simplified `Indexer` - always uses `UniversalParser`
+- Extended `CodeChunk` with framework metadata fields
+- Enhanced `SearchResult` with route and framework info
+- Regex-based route extraction for FastAPI and Flask
+- AST-based class and decorator analysis
+
+### Example Usage
+
+#### Python API
+```python
+from codesense import CodeSense
+
+# Initialize
+cs = CodeSense(index_name="my_project")
+
+# Index a directory
+cs.index("/path/to/project")
+
+# Search
+results = cs.search("user authentication", top_k=5)
+for result in results:
+    print(f"[{result.rank}] {result.file_path}:{result.start_line}")
+    print(f"  {result.signature}")
+    print(f"  Score: {result.score:.4f}")
+
+# Update index
+cs.update()
+
+# Get info
+info = cs.info()
+print(f"Files: {info['num_files']}, Chunks: {info['num_chunks']}")
+
+# List all indexes
+indexes = CodeSense.list_indexes()
+print(f"Available indexes: {indexes}")
+```
+
+#### CLI
+```bash
+# Index any Python project (auto-detects all frameworks)
+semantic-search index ~/projects/mixed-app --name my_app
+
+# Natural queries with auto-detection (no --filter needed!)
+semantic-search search "product model" --index my_app
+# ✓ Automatically finds only Django + Pydantic models
+
+semantic-search search "api endpoint for products" --index my_app
+# ✓ Automatically finds only FastAPI + Flask routes
+
+semantic-search search "django product" --index my_app
+# ✓ Automatically finds only Django code (models, views, serializers)
+
+semantic-search search "flask login route" --index my_app
+# ✓ Automatically finds only Flask routes
+
+semantic-search search "pydantic schema" --index my_app
+# ✓ Automatically finds only Pydantic models
+
+# Explicit filter still works (for precise control)
+semantic-search search "product" --index my_app --filter model
+semantic-search search "user" --index my_app --filter view
+
+# No filter - search everything
+semantic-search search "authentication" --index my_app
+```
+
+### Example Output
+
+**Query: "product model"** (auto-detects 'model' intent)
+```
+[1] pydantic_model: Product
+    Location: database.py:44
+    Score: 0.5825
+    Signature: class Product(BaseModel):
+    Doc: Product model for e-commerce items.
+
+[2] django_model: Product
+    Location: django_test.py:13
+    Score: 0.7045
+    Signature: class Product(models.Model):
+    Doc: Product model for e-commerce.
+```
+
+**Query: "api endpoint for products"** (auto-detects 'route' intent)
+```
+[1] fastapi_route: get_products
+    Location: api/routes.py:54
+    Score: 1.0215
+    Route: GET /products
+    Signature: async def get_products():
+    Doc: Get all products.
+
+[2] flask_route: list_products
+    Location: app/views.py:33
+    Score: 1.1152
+    Route: GET /api/products
+    Signature: def list_products():
+    Doc: List all products endpoint.
+```
+
+**Query: "django product"** (auto-detects 'django' framework)
+```
+[1] django_model: Product
+    Location: models.py:13
+    Score: 0.4537
+    Signature: class Product(models.Model):
+    Doc: Product model for e-commerce.
+
+[2] django_serializer: ProductSerializer
+    Location: serializers.py:43
+    Score: 0.7157
+    Signature: class ProductSerializer(serializers.ModelSerializer):
+    Doc: Serializer for Product model.
+```
+
+### Breaking Changes
+- Removed `--type` option from `index` command (no longer needed)
+- Filter choice restrictions removed (now accepts any string)
 
 ## [0.3.0] - 2025-12-27
 
@@ -192,7 +400,8 @@ semantic-search search "user auth" --index my_app --auto-update
 
 ---
 
-[unreleased]: https://github.com/steliarix/semantic-search/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/steliarix/semantic-search/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/steliarix/semantic-search/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/steliarix/semantic-search/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/steliarix/semantic-search/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/steliarix/semantic-search/compare/v0.1.0...v0.1.1

@@ -7,8 +7,8 @@ Handles loading indexes and performing similarity search queries.
 from dataclasses import dataclass
 from typing import Optional
 
-from semantic_search.embeddings import EmbeddingModel
-from semantic_search.storage import IndexStorage
+from codesense.util.embeddings import EmbeddingModel
+from codesense.util.storage import IndexStorage
 
 
 @dataclass
@@ -31,6 +31,11 @@ class SearchResult:
     signature: Optional[str] = None
     docstring: Optional[str] = None
     parent: Optional[str] = None
+
+    # Framework-specific fields (v0.4)
+    framework_type: Optional[str] = None  # django_model, fastapi_route, etc.
+    http_method: Optional[str] = None
+    route_path: Optional[str] = None
 
     # Legacy fields (v0.1 compatibility)
     absolute_path: Optional[str] = None
@@ -82,13 +87,16 @@ class Searcher:
 
         print(f"Loaded index '{index_name}' with {self.faiss_index.ntotal} vectors")
 
-    def search(self, query: str, top_k: int = 5) -> list[SearchResult]:
+    def search(self, query: str, top_k: int = 5, filter_type: Optional[str] = None) -> list[SearchResult]:
         """
         Search for files/chunks semantically similar to the query.
+
+        Uses smart query analysis to auto-detect intent and boost relevant results.
 
         Args:
             query: Search query text
             top_k: Number of top results to return
+            filter_type: Filter results by framework type (e.g., 'model', 'route', 'view')
 
         Returns:
             List of SearchResult objects, ordered by relevance
@@ -103,11 +111,16 @@ class Searcher:
         if self.faiss_index.ntotal == 0:
             return []
 
+        # Smart query analysis - detect intent from query
+        detected_filter = self._analyze_query_intent(query) if not filter_type else None
+        active_filter = filter_type or detected_filter
+
         # Create embedding for the query
         query_embedding = self.embedding_model.encode([query], show_progress_bar=False)
 
-        # Adjust top_k if it exceeds available vectors
-        actual_k = min(top_k, self.faiss_index.ntotal)
+        # When filtering (explicit or auto-detected), we need to search more results initially
+        search_k = top_k * 10 if active_filter else top_k
+        actual_k = min(search_k, self.faiss_index.ntotal)
 
         # Search in FAISS index
         # Returns: distances (lower = more similar), indices
@@ -123,14 +136,24 @@ class Searcher:
             # v0.2 chunk-based results
             chunks = self.metadata.get("chunks", [])
 
-            for rank, (distance, idx) in enumerate(zip(distances[0], indices[0]), start=1):
+            for distance, idx in zip(distances[0], indices[0]):
                 # Skip invalid indices
                 if idx >= 0 and idx < len(chunks):
                     chunk_info = chunks[idx]
+
+                    # Apply filter if specified (explicit or auto-detected)
+                    if active_filter and not self._matches_filter(chunk_info, active_filter):
+                        continue
+
+                    # Smart boosting - if auto-detected filter, boost matching types
+                    boosted_score = float(distance)
+                    if detected_filter and self._matches_filter(chunk_info, detected_filter):
+                        boosted_score *= 0.8  # 20% boost for matching detected intent
+
                     result = SearchResult(
                         file_path=chunk_info["file_path"],
-                        score=float(distance),
-                        rank=rank,
+                        score=boosted_score,
+                        rank=0,  # Will be set later
                         chunk_type=chunk_info.get("type"),
                         name=chunk_info.get("name"),
                         start_line=chunk_info.get("start_line"),
@@ -138,8 +161,20 @@ class Searcher:
                         signature=chunk_info.get("signature"),
                         docstring=chunk_info.get("docstring"),
                         parent=chunk_info.get("parent"),
+                        framework_type=chunk_info.get("framework_type"),
+                        http_method=chunk_info.get("http_method"),
+                        route_path=chunk_info.get("route_path"),
                     )
                     results.append(result)
+
+                    # Stop if we have enough filtered results
+                    if len(results) >= top_k:
+                        break
+
+            # Sort by boosted score and assign ranks
+            results.sort(key=lambda r: r.score)
+            for rank, result in enumerate(results, start=1):
+                result.rank = rank
         else:
             # v0.1 whole-file results
             files = self.metadata.get("files", [])
@@ -158,6 +193,96 @@ class Searcher:
                     results.append(result)
 
         return results
+
+    def _analyze_query_intent(self, query: str) -> Optional[str]:
+        """
+        Analyze query to detect user intent and auto-suggest filter.
+
+        Args:
+            query: Search query text
+
+        Returns:
+            Detected filter type or None
+        """
+        query_lower = query.lower()
+
+        # Intent keywords mapping
+        intent_keywords = {
+            "model": ["model", "models", "schema", "schemas", "entity", "entities", "orm", "database table"],
+            "route": ["route", "routes", "endpoint", "endpoints", "api", "path", "url"],
+            "view": ["view", "views", "viewset", "viewsets", "template"],
+            "serializer": ["serializer", "serializers"],
+            "function": ["function", "def ", "method", "methods"],
+            "class": ["class", "classes"],
+        }
+
+        # Framework-specific keywords
+        framework_keywords = {
+            "django": ["django", "drf", "rest_framework"],
+            "fastapi": ["fastapi", "pydantic"],
+            "flask": ["flask", "blueprint"],
+        }
+
+        # Check for framework-specific intent
+        for framework, keywords in framework_keywords.items():
+            if any(keyword in query_lower for keyword in keywords):
+                return framework
+
+        # Check for type-specific intent
+        for intent, keywords in intent_keywords.items():
+            if any(keyword in query_lower for keyword in keywords):
+                return intent
+
+        return None
+
+    def _matches_filter(self, chunk_info: dict, filter_type: str) -> bool:
+        """
+        Check if a chunk matches the filter criteria.
+
+        Args:
+            chunk_info: Chunk metadata dictionary
+            filter_type: Filter type (e.g., 'model', 'route', 'view')
+
+        Returns:
+            True if the chunk matches the filter
+        """
+        framework_type = chunk_info.get("framework_type", "")
+        chunk_type = chunk_info.get("type", "")
+
+        # Map filter types to framework types (universal mapping)
+        filter_mappings = {
+            "model": ["django_model", "pydantic_model"],
+            "route": ["fastapi_route", "flask_route"],
+            "view": ["django_view"],
+            "serializer": ["django_serializer"],
+            "function": ["function"],
+            "class": ["class"],
+            "method": ["method"],
+            # Framework-specific filters
+            "django": ["django_model", "django_view", "django_serializer"],
+            "fastapi": ["fastapi_route", "pydantic_model"],
+            "flask": ["flask_route", "flask_blueprint"],
+            # Specific framework types
+            "django_model": ["django_model"],
+            "django_view": ["django_view"],
+            "django_serializer": ["django_serializer"],
+            "fastapi_route": ["fastapi_route"],
+            "flask_route": ["flask_route"],
+            "pydantic_model": ["pydantic_model"],
+        }
+
+        # Check if filter_type matches
+        filter_lower = filter_type.lower()
+        if filter_lower in filter_mappings:
+            allowed_types = filter_mappings[filter_lower]
+            return framework_type in allowed_types or chunk_type in allowed_types
+
+        # Check for partial matches (e.g., "api" matches "fastapi_route", "django_view")
+        if filter_lower in framework_type.lower() or filter_lower in chunk_type.lower():
+            return True
+
+        # Direct framework_type or chunk_type match
+        return framework_type == filter_type or chunk_type == filter_type
 
     def get_index_info(self) -> dict:
         """

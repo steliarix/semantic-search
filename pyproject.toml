@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "semantic-search"
-version = "0.3.0"
-description = "Local semantic search for Python projects with incremental updates"
+name = "codesense"
+version = "0.4.0"
+description = "AI-powered semantic code search with intelligent parsing for Python projects"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -15,6 +15,7 @@ maintainers = [
     {name = "Artem", email = "stasiuk.dev@gmail.com"}
 ]
 keywords = [
+    "codesense",
     "semantic-search",
     "code-search",
     "embeddings",
@@ -59,14 +60,14 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/steliarix/semantic-search"
-Documentation = "https://github.com/steliarix/semantic-search#readme"
-Repository = "https://github.com/steliarix/semantic-search"
-Issues = "https://github.com/steliarix/semantic-search/issues"
-Changelog = "https://github.com/steliarix/semantic-search/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/steliarix/codesense"
+Documentation = "https://github.com/steliarix/codesense#readme"
+Repository = "https://github.com/steliarix/codesense"
+Issues = "https://github.com/steliarix/codesense/issues"
+Changelog = "https://github.com/steliarix/codesense/blob/main/CHANGELOG.md"
 
 [project.scripts]
-semantic-search = "semantic_search.cli:cli"
+codesense = "codesense.cli:cli"
 
 [tool.setuptools.package-dir]
 "" = "src"
@@ -106,4 +107,4 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=semantic_search --cov-report=term-missing"
+addopts = "-v --tb=short --cov=codesense --cov-report=term-missing"
